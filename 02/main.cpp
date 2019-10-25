@@ -1,3 +1,41 @@
+/*
+2_1. Жадина
+Ограничение времени	1 секунда
+Ограничение памяти	64Mb
+Ввод	стандартный ввод или input.txt
+Вывод	стандартный вывод или output.txt
+Вовочка ест фрукты из бабушкиной корзины.
+В корзине лежат фрукты разной массы. Вовочка может поднять не более K грамм. Каждый фрукт весит не более K грамм. За раз он выбирает несколько самых тяжелых фруктов, которые может поднять одновременно, откусывает от каждого половину и кладет огрызки обратно в корзину. Если фрукт весит нечетное число грамм, он откусывает большую половину. Фрукт массы 1гр он съедает полностью.
+
+Определить за сколько подходов Вовочка съест все фрукты в корзине.
+
+Формат ввода
+Вначале вводится n - количество фруктов и n строк с массами фруктов. n ≤ 50000.
+Затем K - "грузоподъемность". K ≤ 1000.
+
+Формат вывода
+Неотрицательное число - количество подходов к корзине.
+
+Пример 1
+Ввод	Вывод
+3
+1 2 2
+2
+4
+Пример 2
+Ввод	Вывод
+3
+4 3 5
+6
+5
+Пример 3
+Ввод	Вывод
+7
+1 1 1 1 1 1 1
+3
+3
+
+*/
 #include <assert.h>
 #include <iostream>
 #include <cstring>
@@ -18,6 +56,7 @@ private:
 	void sift_down(int index);
 	void sift_up(int index);
 public:
+	Heap() {assert(buffer != nullptr);};
 	~Heap() { if (buffer != nullptr) delete[] buffer; };
 };
 
@@ -100,6 +139,7 @@ void Heap::push(int value) {
 		//новый размер буфера увеличим вдвое
 		capacity <<= 1;
 		int* new_buffer = new int[capacity];
+		assert(new_buffer != nullptr);
 		std::memcpy(new_buffer, buffer, size*sizeof(int));
 		delete[] buffer;
 		buffer = new_buffer;
@@ -120,6 +160,7 @@ private:
 	int* head = buffer;
 	int size = initial_capacity;
 public:
+	Stack() {assert(buffer != nullptr); };
 	~Stack() { if (buffer != nullptr) delete[] buffer; };
 };
 
@@ -128,7 +169,7 @@ bool Stack::empty() const {
 }
 int Stack::top() const {
 	assert(!empty());
-	return *head;
+	return *(head-1);
 }
 
 int Stack::pop() {
@@ -139,6 +180,7 @@ int Stack::pop() {
 void Stack::push(int value) {
 	if (buffer + size == head) {
 		int* new_buffer = new int[size * 2];
+		assert(new_buffer != nullptr);
 		std::memcpy(new_buffer, buffer, size*sizeof(int));
 		delete[] buffer;
 		buffer = new_buffer;
@@ -148,30 +190,21 @@ void Stack::push(int value) {
 	*(head++) = value;
 }
 
-int main() {
-	int n;
-	std::cin >> n;
-	//бабушкина корзина на основе кучи
-	Heap bucket;
-	for (int i = 0; i < n; i++) {
-		int fruit;
-		std::cin >> fruit;
-		bucket.push(fruit);
-	}
-	int K;
-	std::cin >> K;
-
-	int p = 0;
+//решение задачи
+int solution(Heap& bucket, int K) {
+	//счётчик количества подходов
+	int approach = 0;
 	while (!bucket.empty()) {
-		int m = 0;
+		//суммарная масса вытащенных в данном подходе фруктов
+		int mass = 0;
 		//Вовочкина корзина, в неё он на текущем подходе будет складывать огрызки.
 		//Можно было бы для неё тоже использовать Heap, но мы возьмём Stack, так как со стеком операции имеют сложность O(1).
 		Stack bucket2;
-		//Пока бабушкина корзина не пуста и масса уже набранных за подход фруктов + масса самого тяжёлого не превышает K
-		while ((!bucket.empty()) && (m + bucket.top() <= K)) {
+		//Пока бабушкина корзина не пуста и масса уже набранных за подход фруктов + масса самого тяжёлого в бабушкиной корзине не превышает K
+		while ((!bucket.empty()) && (mass + bucket.top() <= K)) {
 			int fruit = bucket.pop();
-			//вытаскиваем самый тяжёлый и добавляем его массу в m
-			m += fruit;
+			//вытаскиваем самый тяжёлый фрукт и добавляем его массу в mass
+			mass += fruit;
 			//отгрызаем бОльшую половину от фрукта (сдвигом вправа на 1 бит вместо деления на 2)
 			fruit >>= 1;
 			if (fruit > 0) {
@@ -183,10 +216,29 @@ int main() {
 		while (!bucket2.empty()) {
 			bucket.push(bucket2.pop());
 		}
-		p++;
+		//увеличиваем счётчик подходов
+		approach++;
 	}
 
-	std::cout << p << std::endl;
+	return approach;
+}
+
+int main() {
+	int n=0;
+	std::cin >> n;
+	//бабушкина корзина на основе кучи
+	Heap bucket;
+	for (int i = 0; i < n; i++) {
+		int fruit;
+		std::cin >> fruit;
+		bucket.push(fruit);
+	}
+	int K=0;
+	std::cin >> K;
+
+	int approach = solution(bucket, K);
+	
+	std::cout << approach << std::endl;
 
 	return 0;
 }
