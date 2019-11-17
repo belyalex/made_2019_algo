@@ -84,7 +84,6 @@ private:
 	std::pair<TreeNode*, TreeNode*> Split(TreeNode* root, const int v);
 
 	TreeNode* FindByIndex(TreeNode* root, const int index) const;
-	TreeNode* FindByValue(TreeNode* root, const int v) const;
 
 	template <typename Callback>
 	void BFS(Callback f);
@@ -98,17 +97,12 @@ TreeNode* Treap::Merge(TreeNode* L, TreeNode* R) {
 
 	if (L->priority > R->priority)
 	{
-
-		//TreeNode* node = new TreeNode(L->value, L->priority, L->left, Merge(L->right, R));
-		//delete L;
 		L->right = Merge(L->right, R);
 		L->refresh_count();
 		return L;
 	}
 	else
 	{
-		//TreeNode* node = new TreeNode(R->value, R->priority, Merge(L, R->left), R->right);
-		//delete R;
 		R->left = Merge(L, R->left);
 		R->refresh_count();
 		return R;
@@ -126,7 +120,6 @@ std::pair<TreeNode*, TreeNode*> Treap::Split(TreeNode* root, const int v) {
 				p = Split(root->right, v);
 				R = p.second;
 			}
-			//L = new TreeNode(root->value, root->priority, root->left, p.first);
 			root->right = p.first;
 			root->refresh_count();
 			L = root;
@@ -137,7 +130,7 @@ std::pair<TreeNode*, TreeNode*> Treap::Split(TreeNode* root, const int v) {
 				p = Split(root->left, v);
 				L = p.first;
 			}
-			root ->left = p.second;
+			root->left = p.second;
 			root->refresh_count();
 			R = root;
 		}
@@ -178,23 +171,16 @@ int Treap::Insert(const int value) {
 }
 
 void Treap::Delete(const int index) {
-	//std::cout << "Delete begin " << index<< std::endl;
 	TreeNode* n = FindByIndex(root, index);
-	//std::cout << n<< std::endl;
 	assert(n != nullptr);
 	int v = n->value;
-
-	//std::cout << "delete value:" << v <<std::endl;
 
 	std::pair<TreeNode*, TreeNode*> p1;
 	std::pair<TreeNode*, TreeNode*> p2;
 	p1=Split(root, v+1);
-	//std::cout << p1.first << " " << p1.second << std::endl;
 	p2=Split(p1.second, v);
-	//std::cout << p2.first << " " << p2.second << std::endl;
 	delete p2.first;
 	root=Merge(p1.first, p2.second);
-	//std::cout << "Delete end" << std::endl;
 }
 
 TreeNode* Treap::FindByIndex(TreeNode* root, const int index) const {
@@ -208,27 +194,19 @@ TreeNode* Treap::FindByIndex(TreeNode* root, const int index) const {
 		return FindByIndex(root->left, index);
 	    }
 	}
+	else {
+	    if (index==0) {
+		return root;
+	    }
+	}
 
 	if (root->right != nullptr) {
-		return FindByIndex(root->right, index - 1 - (root->left!=nullptr? root->left->count :0));
+		return FindByIndex(root->right, index -1 - (root->left!=nullptr? root->left->count :0));
 	}		
 
-	return root;
+	return nullptr;
 }
 
-TreeNode* Treap::FindByValue(TreeNode* root, const int v) const {
-	assert(root != nullptr);
-
-	if (root->value == v) {
-		return root;
-	}
-	if (root->value <= v) {
-		return FindByValue(root->left, v);
-	}
-	else {
-		return FindByValue(root->right, v);
-	}
-}
 
 int main() {
 	srand(1);
