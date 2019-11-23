@@ -76,7 +76,7 @@ private:
         //вычисление хэша многочленом методом Горнера
         unsigned int hash = 0;
         for (const char& ch : s) {
-            hash += (hash * 37 + ch) % capacity;
+            hash += (hash * 11 + ch) % capacity;
         }
         return hash;
     }
@@ -142,8 +142,8 @@ bool HashTable::Add(const std::string& s) {
     assert(!s.empty());
     if (size * 4 == capacity * 3) {
         //Если size == 0.75 * capacity, увеличим таблицу в 2 раза и сделаем рехэширование
-        PHashTableNode* oldTable = table;
-        table = new PHashTableNode[capacity * 2]{ nullptr };
+        PHashTableNode *oldTable = table;
+        table = new PHashTableNode[capacity * 2]{nullptr};
         capacity *= 2;
         size = 0;
         for (size_t i = 0; i < capacity / 2; i++) {
@@ -160,18 +160,26 @@ bool HashTable::Add(const std::string& s) {
     unsigned int hash = CalcHash(s);
     size_t pos = hash % capacity;
     unsigned int hash2 = CalcHash2(s);
+    PHashTableNode firstFree = nullptr;
+    PHashTableNode first = table[pos];
+    size_t c = 0;
     while (table[pos] != nullptr) {
         PHashTableNode p = table[pos];
-        //При добавлении трюк с проверкой попадания в первый расмотренный элемент не нужен.
-        //Если попадём на is_empty, запишем в него добавляемое значение и выйдем из цикла.
-        if (p->is_empty) {
-            p->is_empty = false;
-            p->hash = hash;
-            p->value = s;
-            size++;
-            return true;
+        if ((p == first) && (c++ != 0)) {
+            //У нас может случиться ситуация, когда в таблице все элементы не nullptr, но есть свободные элементы
+            //с is_emppty==true. В этом случае выходим из цикла, когда снова попадём в первый рассмотренный элемент.
+            break;
         }
-        else {
+        if (p->is_empty) {
+            if (firstFree == nullptr) {
+                //Запомним первый встретившийся пустой элемент.
+                //Просто записать здесь данные и выйти из цикла нельзя, так как наше значение может лежать где-нибудь 
+                //дальше в цепочке пробирования.
+                //На самом деле при разных коэффициентах в многочлене Горнера все тесты в некоторых случаях проходили,
+                //а при других коэффициентах - нет.
+                firstFree = p;
+            }
+        } else {
             if ((p->hash == hash) && (p->value == s)) {
                 //Пришли в элемент, в котором уже лежит это значение - добавить не можем.
                 return false;
@@ -179,8 +187,15 @@ bool HashTable::Add(const std::string& s) {
         }
         pos = (pos + hash2) % capacity;
     }
-    //Создаём новый элемент в таблице
-    table[pos] = new HashTableNode(s, hash);
+    if (firstFree != nullptr) {
+        //Запишем наши данные на место первого пустого элемента
+        firstFree->is_empty=false;
+        firstFree->hash=hash;
+        firstFree->value=s;
+    } else {
+        //Создаём новый элемент в таблице
+        table[pos] = new HashTableNode(s, hash);
+    }
     size++;
     return true;
 }
