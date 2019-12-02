@@ -54,175 +54,151 @@ OK
 
 #include <iostream>
 #include <string>
+#include <vector>
 #include <cassert>
-#include <utility>
 
 class HashTable {
 public:
-    explicit HashTable(const int capacity);
+    explicit HashTable(const int capacity) : table(capacity, "") {};
 
-    ~HashTable();
+    bool Has(const std::string &s) const;
 
-    HashTable(const HashTable &) = delete;
-    HashTable(const HashTable &&) = delete;
-    HashTable &operator=(const HashTable &) = delete;
-    HashTable &operator=(const HashTable &&) = delete;
+    bool Add(const std::string &s);
 
-    bool Has(const std::string& s) const;
-    bool Add(const std::string& s);
-    bool Remove(const std::string& s);
+    bool Remove(const std::string &s);
+
 private:
-    unsigned int CalcHash(const std::string& s) const {
+    void RehashTable();
+
+    unsigned int CalcHash(const std::string &s) const {
         //вычисление хэша многочленом методом Горнера
         unsigned int hash = 0;
-        for (const char& ch : s) {
-            hash += (hash * 11 + ch) % capacity;
+        for (const char &ch : s) {
+            hash += (hash * 37 + ch) % table.size();
         }
         return hash;
     }
 
-    unsigned int CalcHash2(const std::string& s) const {
+    unsigned int CalcHash2(const std::string &s) const {
         //в качестве второго хэша - (сумма первого и последнего символа) * 2 + 1 -- чтобы нечётное число получилось
-        return ((s[0] + s[s.length() - 1]) * 2 + 1) % capacity;
+        return ((s[0] + s[s.length() - 1]) * 2 + 1) % table.size();
     }
 
-    struct HashTableNode {
-        std::string value;
-        unsigned int hash = 0;
-        bool is_empty = false;  //Признак, что элемент совободен. Проставляется в true при удалении.
-
-        HashTableNode(std::string  value, const unsigned int hash) : value(std::move(value)), hash(hash) {}
-    };
-    using PHashTableNode = HashTableNode*;
-
-    size_t capacity = 0; //размер хэштаблицы
-    size_t size = 0;     //количество элементов
-    PHashTableNode* table = nullptr; //собственно хэштаблица - динамический массив указателей на HashTableNode
+    //количество занятых элементов
+    size_t size = 0;
+    //Хеш-таблица - вектор строк. Если строка пустая, то данный элемент пустой.
+    //Значение "0" будем использовать как признак, что в этом элементе раньше было какое-то значение.
+    //По условию задачи реальные строки, которые будут записываться в таблицу,
+    //непустые и состоят из строчных латинских букв.
+    std::vector<std::string> table;
 };
 
-HashTable::HashTable(const int capacity) :
-        capacity(capacity) {
-    table = new PHashTableNode[capacity]{nullptr};
-}
 
-HashTable::~HashTable() {
-    for (size_t i = 0; i < capacity;i++) {
-        if (table[i] != nullptr) delete table[i];
-    }
-    delete[] table;
-}
-
-bool HashTable::Has(const std::string& s) const {
+bool HashTable::Has(const std::string &s) const {
     assert(!s.empty());
     unsigned int hash = CalcHash(s);
-    size_t pos = hash % capacity;
+    size_t pos = hash % table.size();
     unsigned int hash2 = CalcHash2(s);
-    PHashTableNode first = table[pos];
-    size_t c = 0;
-    while (table[pos] != nullptr) {
-        PHashTableNode p = table[pos];
-        if ((p == first) && (c++ != 0)) {
-            //У нас может случиться ситуация, когда в таблице все элементы не nullptr, но есть свободные элементы
-            //с is_emppty==true. В этом случае выходим из цикла, когда снова попадём в первый рассмотренный элемент.
+    size_t c = 0; //счётчик числа пробирований
+    while (!table[pos].empty()) {
+        if (c++ >= table.size()) {
+            //Проверка зацикливания.
+            //У нас может случиться ситуация, когда в таблице все свободные элементы ранее уже содержали какое-то
+            //значение. В этом случае выходим из цикла, когда просмотрим все элементы таблицы.
             break;
         }
-        if (!p->is_empty) {
-            if ((p->hash == hash) && (p->value == s)) {
-                //Нашли значение
-                return true;
-            }
+        if (table[pos] == s) {
+            //Нашли значение
+            return true;
         }
-        pos = (pos + hash2) % capacity;
+        pos = (pos + hash2) % table.size();
     }
     //Не нашли
     return false;
 }
 
-bool HashTable::Add(const std::string& s) {
+bool HashTable::Add(const std::string &s) {
     assert(!s.empty());
-    if (size * 4 == capacity * 3) {
-        //Если size == 0.75 * capacity, увеличим таблицу в 2 раза и сделаем рехэширование
-        PHashTableNode *oldTable = table;
-        table = new PHashTableNode[capacity * 2]{nullptr};
-        capacity *= 2;
-        size = 0;
-        for (size_t i = 0; i < capacity / 2; i++) {
-            if (oldTable[i] != nullptr) {
-                if (!oldTable[i]->is_empty) {
-                    Add(oldTable[i]->value);
-                }
-                delete oldTable[i];
-            }
-        }
-        delete oldTable;
+    if (size * 4 >= table.size() * 3) {
+        //Если size >= 0.75 * capacity, увеличим таблицу в 2 раза и сделаем рехэширование
+        RehashTable();
     }
 
     unsigned int hash = CalcHash(s);
-    size_t pos = hash % capacity;
+    size_t pos = hash % table.size();
     unsigned int hash2 = CalcHash2(s);
-    PHashTableNode firstFree = nullptr;
-    PHashTableNode first = table[pos];
-    size_t c = 0;
-    while (table[pos] != nullptr) {
-        PHashTableNode p = table[pos];
-        if ((p == first) && (c++ != 0)) {
-            //У нас может случиться ситуация, когда в таблице все элементы не nullptr, но есть свободные элементы
-            //с is_emppty==true. В этом случае выходим из цикла, когда снова попадём в первый рассмотренный элемент.
+    int firstFree = -1;
+    size_t c = 0; //счётчик числа пробирований
+    while (!table[pos].empty()) {
+        if (c++ >= table.size()) {
+            //Проверка зацикливания.
+            //У нас может случиться ситуация, когда в таблице все свободные элементы ранее уже содержали какое-то
+            //значение. В этом случае выходим из цикла, когда просмотрим все элементы таблицы.
             break;
         }
-        if (p->is_empty) {
-            if (firstFree == nullptr) {
+        if (table[pos] == "0") {
+            //Нулём помечены ранее удалённые элементы
+            if (firstFree == -1) {
                 //Запомним первый встретившийся пустой элемент.
-                //Просто записать здесь данные и выйти из цикла нельзя, так как наше значение может лежать где-нибудь 
+                //Просто записать здесь данные и выйти из цикла нельзя, так как наше значение может лежать где-нибудь
                 //дальше в цепочке пробирования.
-                //На самом деле при разных коэффициентах в многочлене Горнера все тесты в некоторых случаях проходили,
-                //а при других коэффициентах - нет.
-                firstFree = p;
+                firstFree = pos;
             }
         } else {
-            if ((p->hash == hash) && (p->value == s)) {
+            if (table[pos] == s) {
                 //Пришли в элемент, в котором уже лежит это значение - добавить не можем.
                 return false;
             }
         }
-        pos = (pos + hash2) % capacity;
+        pos = (pos + hash2) % table.size();
     }
-    if (firstFree != nullptr) {
+    if (firstFree != -1) {
         //Запишем наши данные на место первого пустого элемента
-        firstFree->is_empty=false;
-        firstFree->hash=hash;
-        firstFree->value=s;
+        table[firstFree] = s;
     } else {
-        //Создаём новый элемент в таблице
-        table[pos] = new HashTableNode(s, hash);
+        //Запишем новый элемент в таблицу
+        table[pos] = s;
     }
     size++;
     return true;
 }
 
-bool HashTable::Remove(const std::string& s) {
+void HashTable::RehashTable() {
+    std::vector<std::string> oldTable = std::move(table);
+    table.resize(oldTable.size() * 2, "");
+    size = 0;
+    for (const auto &s: oldTable) {
+        if ((!s.empty()) && (s != "0")) {
+            Add(s);
+        }
+    }
+}
+
+bool HashTable::Remove(const std::string &s) {
     assert(!s.empty());
     unsigned int hash = CalcHash(s);
-    size_t pos = hash % capacity;
+    size_t pos = hash % table.size();
     unsigned int hash2 = CalcHash2(s);
-    int c = 0;
-    PHashTableNode first = table[pos];
-    while (table[pos] != nullptr) {
-        PHashTableNode p = table[pos];
-        if ((p == first) && (c++ != 0)) {
-            //У нас может случиться ситуация, когда в таблице все элементы не nullptr, но есть свободные элементы
-            //с is_emppty==true. В этом случае выходим из цикла, когда снова попадём в первый рассмотренный элемент.
+    int c = 0; //счётчик числа пробирований
+    while (!table[pos].empty()) {
+        if (c++ >= table.size()) {
+            //Проверка зацикливания.
+            //У нас может случиться ситуация, когда в таблице все свободные элементы ранее уже содержали какое-то
+            //значение. В этом случае выходим из цикла, когда просмотрим все элементы таблицы.
             break;
         }
-        if (!p->is_empty) {
-            if ((p->hash == hash) && (p->value == s)) {
-                //Нашли удаляемое значение, проставим is_empty=true.
-                p->is_empty = true;
-                size--;
-                return true;
-            }
+        if (table[pos] == s) {
+            //Нашли удаляемое значение, запишем в этот элемент "0", как признак того, что он теперь снова "пустой".
+            //В реальных данных "0" не может встретиться, так как по условию у нас строки могут состоять только из
+            //строчных латинских букв.
+            table[pos] = "0";
+            //Можно было бы не уменьшать здесь size, в этом случае у нас рехеширование делалось бы в случае,
+            //когда кол-во занятых + кол-во освобождённых элементов станет >= 0.75 от размера таблицы.
+            //Гарантированно были бы пустые элементы в таблице и не нужны были бы проверки зацикливания.
+            size--;
+            return true;
         }
-        pos = (pos + hash2) % capacity;
+        pos = (pos + hash2) % table.size();
     }
     //Не нашли
     return false;
@@ -251,3 +227,4 @@ int main() {
 
     return 0;
 }
+
