@@ -417,7 +417,7 @@ void Encode(IInputStream& original, IOutputStream& compressed)
     //std::unordered_map<std::string, byte> decode_map;
     n.build_code("");
 
-    n.BFS([&encode_map, &decode_map](HeapNode* n) {
+    n.BFS([&encode_map/*, &decode_map*/](HeapNode* n) {
         if ((n->left == nullptr) && (n->right == nullptr)) {
             encode_map[n->value] = n->code;
             //decode_map[n->code] = n->value;
