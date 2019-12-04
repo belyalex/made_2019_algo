@@ -1,52 +1,3 @@
-/*
-Реализуйте алгоритм построения оптимального префиксного кода Хаффмана. 
-При помощи алгоритма реализуйте две функции для создания архива из 
-одного файла и извлечения файла из архива.
-
-
-// Метод архивирует данные из потока original
-void Encode(IInputStream& original, IOutputStream& compressed);
-// Метод восстанавливает оригинальные данные
-void Decode(IInputStream& compressed, IOutputStream& original);
- где:
-typedef unsigned char byte;
-
-struct IInputStream {
-    // Возвращает false, если поток закончился
-    bool Read(byte& value) = 0;
-};
-
-struct IOutputStream {
-    void Write(byte value) = 0;
-};
-
-В контест необходимо отправить .cpp файл содержащий функции Encode, Decode, 
-а также включающий файл Huffman.h. Тестирующая программа выводит скоринг 
-зависящий от соотношения размера сжатого файла и исходного.
-
-Пример минимального решения:
-#include "Huffman.h"
-
-static void copyStream(IInputStream& input, IOutputStream& output)
-{
-    byte value;
-    while (input.Read(value)) 
-    { 
-	output.Write(value); 
-    }
-}
-
-void Encode(IInputStream& original, IOutputStream& compressed) 
-{
-    copyStream(original, compressed); 
-}
-
-void Decode(IInputStream& compressed, IOutputStream& original) 
-{ 
-    copyStream(compressed, original); 
-}
-
-*/
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -76,7 +27,7 @@ private:
 };
 
 BitsReader::BitsReader(std::vector<byte>&& buffer) :
-        buffer_(std::move(buffer))
+    buffer_(std::move(buffer))
 {
     bits_count_last = buffer_[0] & 7;
     encoded = (buffer_[0] & 8 != 0);
@@ -374,16 +325,6 @@ public:
     ~Heap() { if (buffer != nullptr) delete[] buffer; };
 };
 
-static void copyStream(IInputStream& input, IOutputStream& output)
-{
-    byte value;
-    while (input.Read(value))
-    {
-        output.Write(value);
-    }
-}
-
-
 void Encode(IInputStream& original, IOutputStream& compressed)
 {
     Heap<HeapNode> heap;
@@ -414,16 +355,13 @@ void Encode(IInputStream& original, IOutputStream& compressed)
     }
 
     std::unordered_map<byte, std::string> encode_map;
-    //std::unordered_map<std::string, byte> decode_map;
     n.build_code("");
 
-    n.BFS([&encode_map/*, &decode_map*/](HeapNode* n) {
+    n.BFS([&encode_map](HeapNode* n) {
         if ((n->left == nullptr) && (n->right == nullptr)) {
             encode_map[n->value] = n->code;
-            //decode_map[n->code] = n->value;
         }
     });
-
 
     BitsWriter bw;
     n.print2(&n, bw);
@@ -474,7 +412,6 @@ void Decode(IInputStream& compressed, IOutputStream& original)
 
     BitsReader br(std::move(bytes));
 
-
     HeapNode n;
 
     n.buildTreeFromBitsReader(br, &n);
@@ -499,18 +436,4 @@ void Decode(IInputStream& compressed, IOutputStream& original)
     }
 }
 
-int main(int c, char* args[]) {
-    if (c<4) return -1;
-    IInputStream i(args[c-2]);
-    IOutputStream o(args[c-1]);
 
-    if (args[1][0]=='e') {
-        Encode(i, o);
-        return 0;
-    }
-
-
-    Decode(i,o);
-
-    return 0;
-}
