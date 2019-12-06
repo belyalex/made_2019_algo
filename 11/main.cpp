@@ -33,29 +33,30 @@ public:
 
     void AddEdge(size_t x, size_t y);
 
-    size_t GetMinPathCount(size_t v, size_t w);
+    size_t GetMinPathCount(size_t v, size_t w) const;
 
 private:
     std::vector<std::vector<size_t>> graph;  //для каждой вершины графа храним вектор смежных вершин
-    std::vector<size_t> min_d;               //длина минимального пути от начальной вершины
-    std::vector<size_t> count;               //количество минимальных путей от начальной вершины до текущей
 };
 
 Graph::Graph(const size_t V) :
-        graph(V),
-        min_d(V, SIZE_MAX),
-        count(V, 0) {}
+        graph(V) {}
 
 void Graph::AddEdge(const size_t x, const size_t y) {
     graph[x].push_back(y);
     graph[y].push_back(x);
 }
 
-size_t Graph::GetMinPathCount(size_t v, size_t w) {
+//Поиск числа кратчайших путей из вершины v в w
+size_t Graph::GetMinPathCount(const size_t v, const size_t w) const {
+    //Для посещаемых вершин будем хранить длину минимального пути от начальной вершины.
+    std::vector<size_t> min_d(graph.size(), SIZE_MAX);
+    //Здесь для посещаяемых вершин будем хранить количество минимальных путей от начальной вершины.
+    std::vector<size_t> count(graph.size(),0);
     //Здесь когда-нибудь будет длина кратчайшего пути из v в w.
     //А пока просто самое большое число, влезающее в size_t.
     size_t distance = SIZE_MAX;
-    //В очереди будем хранить пару вершин - в какаую вершину и из какой идём на текущем шаге.
+    //В очереди будем хранить пару вершин: в какаую вершину и из какой идём на текущем шаге.
     std::queue<std::pair<size_t, size_t>> queue;
     //Положим начальную вершину в очередь.
     queue.push(std::make_pair(v, v));
@@ -70,7 +71,7 @@ size_t Graph::GetMinPathCount(size_t v, size_t w) {
             //Длина минимального пути до неё будет равна длине минимального пути до предка + 1.
             //Для начальной вершины v тоже получим правильное расстояние: SIZE_MAX + 1 переполнится до 0.
             min_d[p.first] = min_d[p.second] + 1;
-            //Количество путей пока равно кол-ву путей до предка
+            //Количество путей пока равно количеству путей до предка
             count[p.first] = count[p.second];
             if (p.first == w) {
                 //Попали в искомую вершину, значит стала известна длина минимального пути в искомую вершину.
@@ -87,7 +88,7 @@ size_t Graph::GetMinPathCount(size_t v, size_t w) {
             }
         } else if (min_d[p.first] == min_d[p.second] + 1) {
             //Повторно пришли в некоторую вершину и длина пути при этом такая же.
-            //Прибавим к счётчику путей в текущей вершине счётчик числа путей из предка.
+            //Прибавим к счётчику путей в текущую вершину счётчик числа путей из предка.
             //Более короткий путь у нас получиться не может, так как мы обходим граф в ширину, а более длинные пути
             //нам не интересны.
             count[p.first] += count[p.second];
