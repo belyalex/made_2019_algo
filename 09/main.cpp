@@ -17,7 +17,7 @@ public:
 
     BitsReader(std::vector<byte>&& buffer);
 
-    bool isEncoded() {return encoded;}
+    bool isEncoded() const {return encoded;}
 private:
     std::vector<byte> buffer_;
     size_t position_ = 0;
