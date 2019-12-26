@@ -18,23 +18,33 @@ stdout
  */
 
 #include <iostream>
-#include <vector>
 #include <string>
 #include <algorithm>
+#include <deque>
 
-std::vector<int> z_function(const std::string &s) {
+std::deque<int> z_function(const std::string &s, int p) {
     int n = s.length();
-    std::vector<int> z(n, 0);
+    std::deque<int> z;
+    z.push_back(0);
     int l = 0;
     int r = 0;
     for (int i = 1; i < n; i++) {
-        z[i] = std::max(0, std::min(z[i - l], r - i + 1));
-        while ((i + z[i] < n) && (s[z[i]] == s[i + z[i]])) {
-            z[i]++;
+        z.push_back(std::max(0, std::min(z[i - l], r - i + 1)));
+        while ((i + z.back() < n) && (s[z.back()] == s[i + z.back()])) {
+            z.back()++;
         }
-        if (i + z[i] - 1 > r) {
+        if (i + z.back() - 1 > r) {
             l = i;
-            r = i + z[i] - 1;
+            r = i + z.back() - 1;
+        }
+
+        if (z.back() == p) {
+            std::cout << i - p - 1 << " ";
+        }
+        if (i>p) {
+            //В деке будет не больше p + 1 элементов.
+            //Ограничение по памяти O(p) соблюдено.
+            z.pop_back();
         }
     }
     return z;
@@ -44,16 +54,11 @@ int main() {
     std::string t, s;
     std::cin >> t >> s;
 
-    std::vector<int> z = z_function(t + '#' + s);
-
     int p = t.length();
-    int n = s.length();
-    for (int i = p + 1; i < n + p + 1; i++) {
-        if (z[i] == p) {
-            std::cout << (i - p - 1) << ' ';
-        }
-    }
+
+    s=t+"#"+s;
+
+    z_function(s, p);
 
     return 0;
 }
-
