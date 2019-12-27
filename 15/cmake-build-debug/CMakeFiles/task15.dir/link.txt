@@ -1,0 +1,1 @@
+/usr/bin/c++   -std=c++14 -fopenmp -g   CMakeFiles/task15.dir/main.cpp.o CMakeFiles/task15.dir/Graph.cpp.o CMakeFiles/task15.dir/DSU.cpp.o  -o task15 
