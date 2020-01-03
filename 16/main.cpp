@@ -20,45 +20,52 @@ stdout
 #include <iostream>
 #include <string>
 #include <algorithm>
-#include <deque>
+#include <vector>
 
-std::deque<int> z_function(const std::string &s, int p) {
+//Поиск всех вхождений шаблона t в строке s при помощи z-функции с доп. памятью O(p), где p - длина шаблона t
+void FindAllWithZfunction(const std::string& t, const std::string &s) {
     int n = s.length();
-    std::deque<int> z;
+    int p = t.length();
+    std::vector<int> z(p,0);
     z.push_back(0);
     int l = 0;
     int r = 0;
-    for (int i = 1; i < n; i++) {
-        z.push_back(std::max(0, std::min(z[i - l], r - i + 1)));
-        while ((i + z.back() < n) && (s[z.back()] == s[i + z.back()])) {
-            z.back()++;
+    //Вычисляем значения z-функции для шаблона t
+    for (int i = 1; i < p; i++) {
+        z[i]=std::max(0, std::min(z[i - l], r - i + 1));
+        while ((i + z[i] < n) && (t[z[i]] == t[i + z[i]])) {
+            z[i]++;
         }
-        if (i + z.back() - 1 > r) {
+        if (i + z[i] - 1 > r) {
             l = i;
-            r = i + z.back() - 1;
-        }
-
-        if (z.back() == p) {
-            std::cout << i - p - 1 << " ";
-        }
-        if (i>p) {
-            //В деке будет не больше p + 1 элементов.
-            //Ограничение по памяти O(p) соблюдено.
-            z.pop_back();
+            r = i + z[i] - 1;
         }
     }
-    return z;
+    int Z=0;
+    l=0;
+    r=0;
+    //Проходим по строке, для каждой позиции в строке вычисляем значение z-функции, но не сохраняем его в вектор.
+    for (int i=0; i<n; i++) {
+        Z=std::max(0, std::min(z[i - l], r - i + 1));
+        while ((i + Z < n) && (t[Z] == s[i + Z])) {
+            Z++;
+        }
+        if (i + Z - 1 > r) {
+            l = i;
+            r = i + Z - 1;
+        }
+        if (Z == p) {
+            //Нашли очередное вхождение - напечатаем его
+            std::cout << i << " ";
+        }
+    }
 }
 
 int main() {
     std::string t, s;
     std::cin >> t >> s;
 
-    int p = t.length();
-
-    s=t+"#"+s;
-
-    z_function(s, p);
+    FindAllWithZfunction(t, s);
 
     return 0;
 }
