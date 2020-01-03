@@ -1,0 +1,3 @@
+/home/alex/CLionProjects/task15/cmake-build-release/CMakeFiles/rebuild_cache.dir
+/home/alex/CLionProjects/task15/cmake-build-release/CMakeFiles/task15.dir
+/home/alex/CLionProjects/task15/cmake-build-release/CMakeFiles/edit_cache.dir
