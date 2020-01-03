@@ -139,7 +139,7 @@ GeoHashTree::BuildTreeLon(std::priority_queue<Point, std::deque<Point>, LonCompa
     Point center1((bottom_left.lon + top_right.lon) / 2, bottom_left.lat);
     Point center2((bottom_left.lon + top_right.lon) / 2, top_right.lat);
     auto node = new GeoHashNode(bottom_left, top_right, points.size());
-    if (points.size() > 5) {
+    if (points.size() > 1500) {
         std::priority_queue<Point, std::deque<Point>, LatComparator> left_queue;
         LonComparator cmp;
         while (!points.empty()) {
@@ -179,7 +179,7 @@ GeoHashTree::BuildTreeLat(std::priority_queue<Point, std::deque<Point>, LatCompa
     Point center1(bottom_left.lon , (bottom_left.lat + top_right.lat) / 2);
     Point center2(top_right.lon, (bottom_left.lat + top_right.lat) / 2);
     auto node = new GeoHashNode(bottom_left, top_right, points.size());
-    if (points.size() > 5) {
+    if (points.size() > 1500) {
         std::priority_queue<Point, std::deque<Point>, LonComparator> left_queue;
         LatComparator cmp;
         while (!points.empty()) {
