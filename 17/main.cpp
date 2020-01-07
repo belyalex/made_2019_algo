@@ -23,42 +23,66 @@ stdout
 
 #include <iostream>
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <memory>
 #include <vector>
 
 struct Node {
-    std::map<char, std::shared_ptr<Node>> go;
-    std::shared_ptr<Node> parent;
-    std::shared_ptr<Node> suffix_link;
+    std::unordered_map<char, std::shared_ptr<Node>> go;
+    std::weak_ptr<Node> parent;
+    std::weak_ptr<Node> suffix_link;
     std::vector<int> offsets;
     char symbol;
     bool is_terminal = false;
 
     explicit Node(const std::shared_ptr<Node> &parent, const char symbol) : parent(parent), symbol(symbol) {}
 
-    explicit Node() : parent(nullptr), symbol('\0') {}
+    Node() : symbol('\0') {}
 
-    std::shared_ptr<Node> FindSuffixLink();
+    void Destroy() {
+        //В процессе хождения по бору у нас могли образоваться циклические ссылки. Зачистим.
+        for (auto &item : go) {
+            if (item.second != nullptr) {
+                auto tmp = item.second;
+                item.second.reset();
+                tmp->Destroy();
+            }
+        }
+    }
+
+    std::weak_ptr<Node> FindSuffixLink();
+
+    std::shared_ptr<Node> Go(char ch);
 };
 
-std::shared_ptr<Node> Node::FindSuffixLink() {
-    if (suffix_link != nullptr) {
+std::shared_ptr<Node> Node::Go(char ch) {
+    auto it = go.find(ch);
+    if (it == go.end()) {
+        if (parent.lock() == nullptr) {
+            //попали в корень
+            return go[ch] = suffix_link.lock();
+        } else {
+            return go[ch] = FindSuffixLink().lock()->Go(ch);
+        }
+    }
+    return it->second;
+}
+
+std::weak_ptr<Node> Node::FindSuffixLink() {
+    if (suffix_link.lock() != nullptr) {
         return suffix_link;
     }
-    std::shared_ptr<Node> u = parent;
+    std::shared_ptr<Node> u = parent.lock();
     char c = symbol;
-    decltype(u->go.find(c)) v;
+    decltype(u->Go(c)) v;
     do {
-        u = u->FindSuffixLink();
-        v = u->go.find(c);
-    } while ((u->parent != nullptr) && (v == u->go.end()));
-    if ((u->suffix_link == u) && (parent == u)) {
+        u = u->FindSuffixLink().lock();
+        v = u->Go(c);
+    } while ((u->parent.lock() != nullptr) && (v == nullptr));
+    if ((u->suffix_link.lock() == u) && (parent.lock() == u)) {
         suffix_link = u;
-    } else if (v != u->go.end()) {
-        suffix_link = v->second;
     } else {
-        suffix_link = u;
+        suffix_link = v;
     }
     return suffix_link;
 }
@@ -75,81 +99,18 @@ public:
 
     Trie &operator=(Trie &&) = delete;
 
-    ~Trie() = default;
+    ~Trie() { root->Destroy(); };
 
-    bool Has(const std::string &key) const;
+    bool Add(const std::string &key, int offset);
 
-    bool Add(const std::string &key, const int offset);
-
-    bool Remove(const std::string &key);
-
-    void Print() const;
-
-    void AddAll(std::string &t);
-
-    void FindAll(const std::string &s) const;
-
+    std::shared_ptr<Node> GetRoot() const { return root; };
 private:
-    int count = 0;
-    std::string templ;
     std::shared_ptr<Node> root;
-
-    static void print(const std::shared_ptr<Node> &node, const std::string &current);
-
-    // Возвращает пару bool: первый - о наличии строки
-    // второй - о единственности узла и необходимости его удалить.
-    static std::pair<bool, bool> remove(
-            std::shared_ptr<Node> &node, const std::string &key, int current_index);
 };
 
 Trie::Trie() {
     root = std::make_shared<Node>();
-    root->suffix_link = root;
-}
-
-void Trie::FindAll(const std::string &s) const {
-    std::vector<int> counts(s.length(), 0);
-    std::shared_ptr<Node> current = root;
-    for (int i = 0; i < s.length(); i++) {
-        char symbol = s[i];
-        auto next = current->go.find(symbol);
-        while ((next == current->go.end()) && (current != root)) {
-            current = current->FindSuffixLink();
-            next = current->go.find(symbol);
-        }
-        if (next != current->go.end()) {
-            current = next->second;
-        }
-        //if (current->is_terminal) {
-            auto x = current;
-            while (x!=x->FindSuffixLink()) {
-                if (x->is_terminal) {
-                    for (const int offset : x->offsets) {
-                        if ((i - offset + 1 >= 0) && (i - offset + 1 < counts.size())) {
-                            counts[i - offset + 1]++;
-                        }
-                    }
-                }
-                x = x->FindSuffixLink();
-            }
-        //}
-    }
-    for (int i = 0; i < (int) s.length() - (int) templ.length() + 1; i++) {
-        //std::cerr << counts[i] << ' ';
-        if (counts[i] == count) {
-            std::cout << i << ' ';
-        }
-    }
-}
-
-bool Trie::Has(const std::string &key) const {
-    std::shared_ptr<Node> current = root;
-    for (char symbol : key) {
-        auto next = current->go.find(symbol);
-        if (next == current->go.end()) return false;
-        current = next->second;
-    }
-    return current->is_terminal;
+    root->suffix_link = root; //в корне суффиксная ссылка указывает тоже на корень.
 }
 
 bool Trie::Add(const std::string &key, const int offset) {
@@ -163,7 +124,6 @@ bool Trie::Add(const std::string &key, const int offset) {
         }
     }
     current->offsets.push_back(offset);
-    count++;
     // Если терминальная, значит, строка уже есть.
     if (current->is_terminal) {
         return false;
@@ -172,51 +132,14 @@ bool Trie::Add(const std::string &key, const int offset) {
     return true;
 }
 
-bool Trie::Remove(const std::string &key) {
-    return remove(root, key, 0).first;
-}
-
-std::pair<bool, bool> Trie::remove(
-        std::shared_ptr<Node> &node, const std::string &key, int current_index) {
-    if (current_index == key.length()) {
-        if (!node->is_terminal) return std::make_pair(false, false);
-        node->is_terminal = false;
-        return std::make_pair(true, node->go.empty());
-    }
-
-    auto next = node->go.find(key[current_index]);
-    if (next == node->go.end()) {
-        return std::make_pair(false, false);
-    }
-
-    auto result = remove(next->second, key, current_index + 1);
-
-    if (!result.first) { // Не нашли
-        return result;
-    }
-    if (!result.second) { // Не нужно удалить ссылку на дочерний
-        return result;
-    }
-    node->go.erase(key[current_index]);
-    return std::make_pair(true, !node->is_terminal && node->go.empty());
-}
-
-void Trie::Print() const {
-    print(root, "");
-}
-
-void Trie::print(const std::shared_ptr<Node> &node, const std::string &current) {
-    if (node->is_terminal) {
-        std::cout << current << std::endl;
-    }
-    for (const auto go : node->go) {
-        print(go.second, current + go.first);
-    }
-}
-
-void Trie::AddAll(std::string &t) {
-    templ = std::move(t);
-    int i = 0;
+//Поиск шаблона templ в строке s. Шаблон может содержать знаки '?', означающие, что на этом месте может находиться
+//любой символ
+void FindAll(const std::string &templ, const std::string &s) {
+    Trie trie;
+    //Счётчик слов в шаблоне
+    int words_count = 0;
+    size_t i = 0;
+    //Построение бора по отдельным словам из шаблона
     while (i < templ.size()) {
         if (templ[i] != '?') {
             std::string word;
@@ -225,9 +148,35 @@ void Trie::AddAll(std::string &t) {
                 i++;
             }
             int offset = i;
-            Add(word, offset);
+            trie.Add(word, offset);
+            words_count++;
         }
         i++;
+    }
+    //Поиск по бору
+    std::vector<int> counts(s.length(), 0); //для каждой позиции в строке храним кол-во найденных слов с учётом смещений
+    std::shared_ptr<Node> current = trie.GetRoot();
+    for (i = 0; i < s.length(); i++) {
+        char symbol = s[i];
+        current = current->Go(symbol);
+        auto x = current;
+        while (x != x->FindSuffixLink().lock()) {
+            if (x->is_terminal) {
+                for (const int offset : x->offsets) {
+                    if ((i - offset + 1 >= 0) && (i - offset + 1 < counts.size())) {
+                        counts[i - offset + 1]++;
+                    }
+                }
+            }
+            x = x->FindSuffixLink().lock();
+        }
+    }
+    for (i = 0; i < (int) s.length() - (int) templ.length() + 1; i++) {        
+        if (counts[i] == words_count) {
+            //Если в какой-то позиции найдены все слова из шаблона,
+            //значит нашли в этой позиции вхождение всего шаблона
+            std::cout << i << ' ';
+        }
     }
 }
 
@@ -238,9 +187,7 @@ int main() {
     std::cin >> t >> s;
 
     if (s.length() >= t.length()) {
-        Trie trie;
-        trie.AddAll(t);
-        trie.FindAll(s);
+        FindAll(t, s);
     }
 
     return 0;
